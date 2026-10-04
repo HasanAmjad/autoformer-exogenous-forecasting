@@ -1,0 +1,317 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=2.2cm]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{float}
+\usepackage{xcolor}
+\usepackage{enumitem}
+\usepackage{hyperref}
+\hypersetup{colorlinks=true,linkcolor=blue,urlcolor=blue}
+\setlist{nosep,leftmargin=1.4em}
+
+% ---------- helpers ----------
+% \todo{...} marks text still to write (red, easy to spot; delete before submitting)
+\newcommand{\todo}[1]{\textcolor{red}{[TODO: #1]}}
+% \figph{label}{caption} is a figure placeholder; swap for \includegraphics once the PDF exists
+\newcommand{\figph}[2]{%
+  \begin{figure}[H]\centering
+  \fbox{\parbox[c][4cm][c]{0.85\linewidth}{\centering\textcolor{gray}{Figure placeholder: \detokenize{#1}}}}
+  \caption{#2}\label{fig:#1}\end{figure}}
+% When the figure exists, replace \figph{...}{...} with e.g.:
+%   \begin{figure}[H]\centering
+%   \includegraphics[width=0.9\linewidth]{figures/output_1_2.pdf}
+%   \caption{...}\label{fig:out12}\end{figure}
+
+\begin{document}
+
+% =====================================================================
+\begin{titlepage}
+\centering
+{\large Lahore University of Management Sciences}\\[2pt]
+{\large Department of Artificial Intelligence}\\[24pt]
+{\LARGE \textbf{AI651 -- Deep Learning for Space, Time and Graphs}}\\[8pt]
+{\Large Programming Assignment 1}\\[30pt]
+{\large Hasan Amjad}\\[2pt]
+{\large Roll No.\ 25280042}\\[24pt]
+\textbf{GitHub repository:}\\
+\url{https://github.com/USERNAME/REPO}\ \todo{replace with your public repo link}\\[24pt]
+\today
+\vfill
+\begin{flushleft}
+\small
+\textbf{Contents of submission:} this report (PDF and \LaTeX\ source); the executed
+\texttt{PA1\_PRESET=full} Task~1 notebook; each numbered figure as a PDF; Task~2 code in the repository.
+\end{flushleft}
+\end{titlepage}
+
+% =====================================================================
+\section*{Task 1 -- Forecasting Across Heterogeneous Sensors}
+\addcontentsline{toc}{section}{Task 1}
+
+\noindent\textbf{Run configuration.}
+Preset \texttt{full}; data seed 0; model seed 0; device \texttt{mps} (Apple GPU);
+eligible train/validation/test origins 650/105/105.
+All numbers below come from this single full run. Unless stated otherwise, errors are
+\textbf{validation} RMSE in m/s$^2$; ``established'' = Stations 1--3, ``held-out'' = Station~4.
+
+% ---------------------------------------------------------------------
+\subsection*{Response 1A -- Predicted vs.\ measured ordering}
+
+\paragraph{Prediction (written before running Output 1.1).}
+\begin{itemize}
+  \item \textbf{Established stations} (best $\to$ worst): Raw Attention $>$ Period-routed ridge $>$ Shared ridge $>$ Sensor-specific ridge.
+  \item \textbf{Held-out Station 4} (best $\to$ worst): Raw Attention $>$ Period-routed ridge $>$ Shared ridge; Sensor-specific ridge cannot forecast Station 4.
+  \item \textbf{Reasoning.} Raw Attention is a neural network that builds its own mixing rule from each context, so it should handle changing speed and also forecast Station 4. Period-routed ridge picks a formula fitted to the estimated speed, so it also handles changing speed and Station 4, but relies on a hand-designed router. Shared ridge applies one formula everywhere: it cannot adapt to speed, but it still forecasts Station 4. Sensor-specific ridge uses a fixed formula per station, so it cannot adapt to changing speed, and it has no formula for Station 4.
+\end{itemize}
+
+\paragraph{Measurement (Output 1.1).}
+\begin{table}[H]\centering\small
+\caption{Output 1.1 -- validation RMSE (m/s$^2$) by population and product.}
+\label{tab:out11}
+\begin{tabular}{lcccccccc}
+\toprule
+ & \multicolumn{4}{c}{Established (Stations 1--3)} & \multicolumn{4}{c}{Held-out (Station 4)}\\
+\cmidrule(lr){2-5}\cmidrule(lr){6-9}
+Model & All & A & B & C & All & A & B & C\\
+\midrule
+Shared ridge          & 0.767 & 0.805 & 0.854 & 0.621 & 0.876 & 0.909 & 0.982 & 0.713\\
+Sensor-specific ridge & 0.768 & 0.804 & 0.852 & 0.630 & n/a & n/a & n/a & n/a\\
+Period-routed ridge   & \textbf{0.166} & \textbf{0.181} & \textbf{0.164} & \textbf{0.152} & \textbf{0.173} & \textbf{0.184} & \textbf{0.182} & \textbf{0.150}\\
+Raw Attention         & 0.436 & 0.412 & 0.462 & 0.433 & 0.659 & 0.677 & 0.619 & 0.678\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{Key differences, quantified.}
+\begin{itemize}
+  \item Period-routed ridge has the lowest error everywhere: 0.166 on established stations, \textbf{78\% lower} than shared ridge (0.767) and \textbf{62\% lower} than Raw Attention (0.436). It is also uniform across products (0.15--0.18).
+  \item Shared and sensor-specific ridge are practically identical (0.767 vs.\ 0.768): giving each station its own matrix buys nothing.
+  \item Generalisation to the unseen station: period-routed ridge degrades by only 4\% (0.166 $\to$ 0.173), shared ridge by 14\% (0.767 $\to$ 0.876), and Raw Attention by \textbf{51\%} (0.436 $\to$ 0.659).
+\end{itemize}
+
+\paragraph{Revised ordering and explanation.}
+Measured ordering, both populations: \textbf{Period-routed ridge $>$ Raw Attention $>$ Shared ridge $\approx$ Sensor-specific ridge} (the latter unavailable on Station~4).
+My prediction got the bottom of the ranking right but the top wrong.
+\begin{itemize}
+  \item \emph{Shared $\approx$ sensor-specific:} the forecasting rule depends on operating pace, not on station identity, so splitting the data by station removes training data without removing the cross-pace compromise.
+  \item \emph{Period-routed ridge wins:} it conditions on exactly the quantity that changes (the period) and, within a pace band, continuation really is close to linear. A human supplied the right variable, so a small closed-form model suffices.
+  \item \emph{Raw Attention is second:} its context-built mixing beats one fixed matrix (0.436 vs.\ 0.767), but it must \emph{learn} the pace dependence from the data while the slow drift dominates the raw input and every position pair is scored separately. Its large held-out gap suggests it partly fitted station-specific details instead of the pace structure.
+\end{itemize}
+
+% ---------------------------------------------------------------------
+\subsection*{Response 1B -- Why the forecasting rule must depend on context}
+
+\begin{figure}[H]\centering
+\includegraphics[width=0.92\linewidth]{{figures/1.2-1}.pdf}
+\caption{Output 1.2 -- Station 1 under Product A ($P\approx16.1$) and Product C ($P\approx30.1$).}
+\label{fig:out12}
+\end{figure}
+
+The single matrix $\widehat W$ in Eq.~(8) is fitted by least squares over \emph{all} training windows, which mix periods from 14 to 36 samples. A 16-sample cycle and a 30-sample cycle need different phase advances over the same 48-step horizon, so one fixed operator can only return their least-squares compromise. In Figure~\ref{fig:out12} this compromise is visible as \textbf{amplitude shrinkage and phase lag}: for Product~A the shared and sensor-specific ridge forecasts have visibly flattened peaks and fall behind the true oscillation in the second half of the horizon (window RMSE 0.779 and 0.787), while period-routed ridge, which uses a matrix fitted only to similar paces, tracks it (0.232). Averaging continuations whose phases disagree partly cancels them, which is why the compromise forecast is damped rather than simply shifted.
+
+\begin{figure}[H]\centering
+\includegraphics[width=\linewidth]{{figures/1.3-1}.pdf}
+\caption{Output 1.3 -- Attention maps for two Station 1 contexts and their difference.}
+\label{fig:out13}
+\end{figure}
+
+Attention uses the \emph{same} learned $W_Q, W_K, W_V$ for both contexts, but its scores $QK^\top/\sqrt{d_h}$ are computed from the current window. Different inputs therefore give different weight matrices: in Figure~\ref{fig:out13} the Product~A and Product~C maps concentrate on different key positions, with a mean absolute weight difference of 0.013 and a maximum of 0.284. Each context thus receives its own value-mixing operation, whereas ridge applies the identical $\widehat W$ to every window. (This only shows that the mixing is context-dependent; it is not evidence that the attention weights have recovered the physical period.)
+
+% ---------------------------------------------------------------------
+\subsection*{Response 2 -- Separating slow structure from repetition}
+
+\begin{figure}[H]\centering
+\includegraphics[width=\linewidth]{{figures/2.1-1}.pdf}
+\caption{Output 2.1 -- trend and remainder for candidate widths (Station 2, Product C).}
+\label{fig:out21}
+\end{figure}
+
+\begin{figure}[H]\centering
+\includegraphics[width=0.6\linewidth]{{figures/2.2-1}.pdf}
+\caption{Output 2.2 -- oracle period recovery (training data only).}
+\label{fig:out22}
+\end{figure}
+
+\begin{table}[H]\centering\small
+\caption{Outputs 2.1--2.2 -- effect of the averaging width $m$.}
+\label{tab:out22}
+\begin{tabular}{lccccc}
+\toprule
+ & raw & $m=17$ & $m=25$ & $m=33$ & $m=41$\\
+\midrule
+Remainder std (m/s$^2$) & -- & 0.578 & 1.012 & 1.372 & 1.572\\
+Oracle recovery within one sample & 0.687 & 0.980 & 0.989 & 0.993 & \textbf{0.998}\\
+Median period error (samples) & 0.525 & 0.157 & 0.122 & 0.142 & 0.216\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[H]\centering\small
+\caption{Output 2.3 -- decomposition ablation, validation RMSE (m/s$^2$).}
+\label{tab:out23}
+\begin{tabular}{lcccc}
+\toprule
+Model & Established & Held-out & Est.\ A / B / C & Held-out A / B / C\\
+\midrule
+Raw Attention & 0.436 & 0.659 & 0.412 / 0.462 / 0.433 & 0.677 / 0.619 / 0.678\\
+Attention + decomposition & \textbf{0.324} & \textbf{0.486} & 0.302 / 0.375 / 0.289 & 0.428 / 0.556 / 0.464\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{itemize}
+  \item \textbf{Selected width $m=41$.} Visually (Fig.~\ref{fig:out21}), narrow widths let the trend follow part of the vibration: at $m=17$ the trend wiggles and the remainder is weak (std 0.578). As $m$ grows the trend becomes a smooth ramp and the remainder becomes a clean, full-amplitude oscillation (std 1.572 at $m=41$); after decomposition the period score peaks sharply at the true period (32), while the raw context gives almost no peak. Empirically, oracle period recovery rises from 0.687 (raw) to 0.998 ($m=41$), and in Output 2.3 adding decomposition to Attention lowers validation RMSE by \textbf{26\%} on established stations (0.436 $\to$ 0.324) and by \textbf{26\%} on Station~4 (0.659 $\to$ 0.486), improving every product.
+  \item \textbf{Why a moving average suits this world.} The drift varies on a 240-sample scale while the vibration has periods of 14--36 samples. A 41-sample window is longer than every vibration period, so it averages each cycle to approximately zero, yet it is much shorter than 240, so the drift passes into the trend almost unchanged. The training-only oracle diagnostic is a sound way to choose $m$ because it directly measures the property we want (does the remainder expose the true repetition?) using information available only in the synthetic training data, without touching validation or test data. Note that the selection criterion matters: $m=41$ maximises recovery within one sample, while $m=25$ has the smallest median period error.
+  \item \textbf{Where it fails / alternative.} A fixed moving average fails at an \emph{abrupt level shift} (e.g.\ a product changeover or impact inside the window): it smears the step over 41 samples and leaks a spurious transient into the remainder. It would also fail if a vibration period exceeded the window. An alternative is \textbf{STL/LOESS decomposition}, which fits local polynomials and assumes a locally smooth (curved) trend rather than a locally constant one, at the cost of more computation and tuning.
+\end{itemize}
+
+\begin{figure}[H]\centering
+\includegraphics[width=0.92\linewidth]{{figures/2.3-1}.pdf}
+\caption{Output 2.3 -- largest and smallest decomposition gains (Station 4).}
+\label{fig:out23}
+\end{figure}
+
+% ---------------------------------------------------------------------
+\subsection*{Response 3 -- Mixing by temporal delay}
+
+\noindent Implementation check: \texttt{aggregate\_delays} reproduces the worked example
+(35, 15, 25, 25, so $z_0=35$ and the shift runs the right way) and passes the gradient check; Output 3.1 confirms \texttt{delay\_scores} against a direct circular correlation (4, $-4$, 4, $-4$).
+
+\begin{figure}[H]\centering
+\includegraphics[width=\linewidth]{{figures/3.2-1}.pdf}
+\caption{Output 3.2 -- signal-level recurrence diagnostic (Station 2, Product A, $P\approx16.1$). This is a correlation computed directly from the signal, not the model's learned q/k scores.}
+\label{fig:out32}
+\end{figure}
+
+\begin{itemize}
+  \item \textbf{Strongest lags.} The residual correlation peaks at lag \textbf{16} (0.896) and lag \textbf{32} (0.897), i.e.\ at the run's period $P\approx16.1$ and its multiple $2P\approx32.3$; the troughs at about 8, 24 and 40 samples are the half-period offsets, where peaks align with troughs.
+  \item \textbf{Why decomposition cleans the evidence.} In the raw signal the correlation simply decays from about 0.45 at lag 8 to $-0.55$ at lag 40, with no peak at $P$: the slow ramp is similar to itself at every small shift and dominates the score. Removing the trend leaves an almost pure oscillation, so peaks align only at multiples of $P$. This supports the delay mixer's inductive bias: if useful information sits at a few recurring displacements, scoring $L$ delays (instead of $L^2$ position pairs) and aggregating shifted copies is the natural mechanism, and it works best on the decomposed stream. Consistently, in Output 4.1 the delay mixer alone already halves Raw Attention's error (0.436 $\to$ 0.214).
+  \item \textbf{Where delay mixing is the wrong bias.} An \emph{isolated transient}, such as a single impact from a loose part, has no recurring displacement. The delay mixer would either average it away or copy it forward at the selected lags as false ``echoes'', because it can only reuse shifted copies of the context. Similarly, if the period drifts quickly within one context (machine run-up), no small fixed set of lags aligns the whole window.
+\end{itemize}
+
+% ---------------------------------------------------------------------
+\subsection*{Response 4 -- Comparing designs and deploying}
+
+\paragraph{(a) Prediction (written before Output 4.1).}
+I expect decomposition to help most, since it splits off the slow trend with a moving average and sends it to a simple linear head, leaving the encoder only the faster vibration.
+
+\paragraph{(b) Validation results (Outputs 4.1--4.2).}
+\begin{table}[H]\centering\small
+\caption{Validation error by model. RMSE in m/s$^2$, MSE in (m/s$^2$)$^2$.}
+\label{tab:out41}
+\begin{tabular}{lcccccc}
+\toprule
+ & \multicolumn{2}{c}{Established} & \multicolumn{2}{c}{Held-out} & & \\
+\cmidrule(lr){2-3}\cmidrule(lr){4-5}
+Model & RMSE & MSE & RMSE & MSE & Params & Fit (s)\\
+\midrule
+Shared ridge & 0.767 & 0.588 & 0.876 & 0.767 & 4{,}608 & 0.001\\
+Sensor-specific ridge & 0.768 & 0.590 & n/a & n/a & 13{,}824 & 0.001\\
+Period-routed ridge & \textbf{0.166} & \textbf{0.028} & \textbf{0.173} & \textbf{0.030} & 59{,}904 & 0.002\\
+\midrule
+Raw Attention & 0.436 & 0.190 & 0.659 & 0.434 & 368{,}368 & 206\\
+Attention + decomposition & 0.324 & 0.105 & 0.486 & 0.236 & 373{,}024 & 292\\
+Raw delay mixer & 0.214 & 0.046 & 0.338 & 0.114 & 368{,}370 & 776\\
+Autoformer-inspired & 0.197 & 0.039 & 0.244 & 0.059 & 373{,}026 & 852\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[H]\centering
+\includegraphics[width=0.92\linewidth]{{figures/4.1-1}.pdf}
+\caption{Output 4.1 -- contrasting forecast cases for the four neural configurations.}
+\label{fig:out41}
+\end{figure}
+
+\begin{figure}[H]\centering
+\includegraphics[width=\linewidth]{{figures/4.2-1}.pdf}
+\caption{Output 4.2 -- validation RMSE across the 48-step horizon.}
+\label{fig:out42}
+\end{figure}
+
+\paragraph{Interpretation ($\le$ 200 words).}
+On established stations, decomposition alone lowers Raw Attention's RMSE from 0.436 to 0.324 ($-26\%$), delay mixing alone to 0.214 ($-51\%$), and both together to 0.197 ($-55\%$). The gains are \textbf{sub-additive}: the individual RMSE reductions sum to 0.334, but the combined reduction is 0.239 (in MSE: 0.229 summed vs.\ 0.151 combined). This fits the hypothesis that both switches address overlapping drift-plus-repetition problems. On held-out Station~4 the overlap is smaller: adding decomposition to the delay mixer still cuts RMSE from 0.338 to 0.244 ($-28\%$), versus only $-8\%$ on established stations. Contrary to my prediction, delay mixing was the stronger single upgrade overall; my prediction concerned drift-dominated contexts, which this aggregate table does not isolate.
+Across the horizon, all errors are similar at step 1 (0.11--0.15) and grow with lead time. Autoformer-inspired grows least among neural models (0.135 $\to$ 0.237), Raw Attention most (0.142 $\to$ 0.564), and period-routed ridge stays lowest throughout (0.112 $\to$ 0.228). Yet the hand-routed linear model still beats every neural variant.
+
+\paragraph{(c) Deployment choices (fixed before Output 4.3).}
+\begin{itemize}
+  \item \textbf{Established stations: Period-routed ridge.} Lowest validation RMSE (0.166 vs.\ 0.197 for the best neural model), about $6\times$ fewer parameters (59{,}904 vs.\ 373{,}026), and essentially instant fitting (0.002\,s vs.\ 852\,s).
+  \item \textbf{Held-out Station 4: Period-routed ridge.} Lowest held-out validation RMSE (0.173 vs.\ 0.244), with the same cost advantage; it routes by estimated pace rather than station identity, so it applies directly to an unseen station.
+\end{itemize}
+\begin{table}[H]\centering\small
+\caption{Output 4.3 -- selected models, validation and test.}
+\label{tab:out43}
+\begin{tabular}{llcccc}
+\toprule
+Population & Model & Val.\ RMSE & Val.\ MSE & Test RMSE & Test MSE\\
+\midrule
+Established & Period-routed ridge & 0.166 & 0.028 & 0.161 & 0.026\\
+Station 4 & Period-routed ridge & 0.173 & 0.030 & 0.183 & 0.033\\
+\bottomrule
+\end{tabular}
+\end{table}
+\noindent Test errors stay close to validation (0.161 and 0.183), so the validation-based choice holds on unseen data. On the central question, the right inductive bias (conditioning on pace) mattered more here than additional model flexibility.
+
+% =====================================================================
+\clearpage
+\section*{Task 2 -- Leaderboard Challenge (Autoformer)}
+\addcontentsline{toc}{section}{Task 2}
+
+\subsection*{Data exploration and periodic structure}
+\todo{ACF, recovered periods, heavy tails, transforms}
+
+\subsection*{Validation protocol}
+\todo{chronological splits, number of 168-step blocks, metrics tracked (MAE, RMSE, sMAPE)}
+
+\subsection*{Model design}
+\todo{Autoformer components used (series decomposition, auto-correlation), input length, size, cited source}
+
+\subsection*{External-data ablation (multi-seed)}
+\begin{table}[H]\centering\small
+\caption{With vs.\ without optional external data -- mean $\pm$ std over \todo{k} seeds, validation.}
+\begin{tabular}{lccc}
+\toprule
+Configuration & MAE & RMSE & sMAPE\\
+\midrule
+Target only & & & \\
++ external (past only) & & & \\
++ external (past + horizon) & & & \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection*{Final submission}
+Declared parameters $P=$ \todo{}; epochs $E=$ \todo{}; leaderboard score \todo{}.
+
+\subsection*{Reflection questions (optional)}
+\todo{Q2.1--Q2.9, if answered}
+
+% =====================================================================
+\clearpage
+\appendix
+\section*{Appendix -- Use of Generative AI}
+\addcontentsline{toc}{section}{Appendix: Generative AI use}
+
+\noindent Tool: Claude (Anthropic). For each use: the prompt, the output, and the edits I made.
+
+\begin{enumerate}
+  \item \textbf{Prompt:} ``help me understand the assignment, and how i need to solve it'' \\
+        \textbf{Output:} overview of Tasks 1--2 and a plan. \\
+        \textbf{Edits:} \todo{...}
+  \item \textbf{Prompt:} ``write me the code now full for forward'' \\
+        \textbf{Output:} the 5-line \texttt{RawAttentionForecaster.forward} assembly. \\
+        \textbf{Edits:} \todo{...}
+  \item \textbf{Prompt:} ``do it'' (report skeleton) \\
+        \textbf{Output:} this \LaTeX\ template (structure and placeholders only). \\
+        \textbf{Edits:} \todo{...}
+  \item \textbf{Prompt:} ``help me write it'' (\texttt{SeriesDecomposition.forward}, \texttt{aggregate\_delays}) \\
+        \textbf{Output:} implementations of both functions (replicate padding + \texttt{avg\_pool1d}; index arithmetic + \texttt{gather}). \\
+        \textbf{Edits:} \todo{...}
+  \item \textbf{Prompt:} ``help me write the responses seeing the results'' \\
+        \textbf{Output:} draft text for Responses 1A (measurement and revision), 1B, 2, 3 and 4(b)--(c), filled tables and figure placement, based on my full-run outputs. My predictions in 1A and 4(a) and my deployment choices were my own. \\
+        \textbf{Edits:} \todo{describe what you changed}
+  \item \todo{add further prompts as you go}
+\end{enumerate}
+
+\end{document}
