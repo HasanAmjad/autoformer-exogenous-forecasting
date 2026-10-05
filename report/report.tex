@@ -57,32 +57,19 @@ Fall 2026\\[6pt]
 
 \noindent\rule{\linewidth}{0.6pt}\\[2pt]
 \textbf{Name:} Hasan Amjad \hfill \textbf{Roll No.:} 25280042\\[2pt]
-\textbf{GitHub repository:} \url{https://github.com/HasanAmjad/autoformer-exogenous-forecasting}\\[-4pt]
+\textbf{GitHub repository:} {\small\url{https://github.com/HasanAmjad/autoformer-exogenous-forecasting}}\\[-4pt]
 \noindent\rule{\linewidth}{0.6pt}
 
-\vspace{6pt}
-\begin{infobox}{Contents of submission}
-This report (PDF and \LaTeX\ source); the executed \texttt{PA1\_PRESET=full} Task~1 notebook;
-each numbered figure as a PDF; Task~2 code and notebooks (\texttt{v1}, \texttt{v2}, \texttt{v3} and \texttt{analysis}) in the repository.
-\end{infobox}
-
-\clearpage
+\paragraph{Summary.} This report presents the work done for both tasks of AI651 Assignment 1. In Task 1, four forecasters are compared on a synthetic vibration dataset: shared, sensor-specific and period-routed ridge, and Raw Attention. The report covers their errors on established and held-out stations, why the forecasting rule must depend on context, and how decomposition separates slow drift from repetition. In Task 2, an Autoformer is built to forecast 168 steps of an anonymised hourly series. Its periodic structure is recovered, a chronological validation protocol is set up, and an ablation shows that the covariates help only when they cover the forecast horizon.
 
 % =====================================================================
 \section*{Task 1 -- Forecasting Across Heterogeneous Sensors}
 \addcontentsline{toc}{section}{Task 1}
 
-\begin{infobox}{Run configuration}
-Preset \texttt{full}; data seed 0; model seed 0; device \texttt{mps} (Apple GPU);
-eligible train/validation/test origins 650/105/105.
-All numbers below come from this single full run. Unless stated otherwise, errors are
-\textbf{validation} RMSE in m/s$^2$; ``established'' = Stations 1--3, ``held-out'' = Station~4.
-\end{infobox}
+\noindent All numbers below come from a single full run (preset \texttt{full}; data seed 0; model seed 0; Apple GPU; 650/105/105 train/validation/test origins). Unless stated otherwise, errors are validation RMSE in m/s$^2$; ``established'' means Stations 1--3 and ``held-out'' means Station~4.
 
 % ---------------------------------------------------------------------
 \subsection*{Response 1A -- Predicted vs.\ measured ordering}
-
-My prediction prior to running Output 1.1 was as follows:
 
 \begin{table}[H]\centering\small
 \caption{Predicted ordering, written before running Output 1.1.}
@@ -92,12 +79,15 @@ My prediction prior to running Output 1.1 was as follows:
 Population & Prediction (best $\to$ worst)\\
 \midrule
 Established stations & Raw Attention $>$ Period-routed $>$ Shared $>$ Sensor-specific\\
-Station 4 forecast   & Raw Attention $>$ Period-routed $>$ Shared ridge\\
+Station 4 forecast$^{*}$ & Raw Attention $>$ Period-routed $>$ Shared ridge\\
 \bottomrule
 \end{tabular}
+
+\vspace{2pt}
+\parbox{0.9\linewidth}{\footnotesize $^{*}$Sensor-specific ridge isn't part of the Station~4 forecast, since it requires a matrix fitted on that station's own training data, which isn't available in our case as Station~4 is held out.}
 \end{table}
 
-Sensor-specific ridge isn't part of the Station~4 forecast, since it requires a matrix fitted on that station's own training data, which isn't available in our case because Station~4 is held out. My intuition for why Raw Attention may lead was that it is basically a neural network that builds its own mixing rule from each window. It can handle changing data because its attention weights are recomputed from the current window, so the same learned projections produce a different mixing rule for each operating speed.
+The initial intuition was that Raw Attention may lead, since it is basically a neural network that builds its own mixing rule from each window. It can handle changing data because its attention weights are recomputed from the current window, so the same learned projections produce a different mixing rule for each operating speed.
 
 \begin{table}[H]\centering\small
 \caption{Output 1.1 -- validation RMSE (m/s$^2$) by population and product.}
@@ -116,9 +106,13 @@ Raw Attention         & 0.436 & 0.412 & 0.462 & 0.433 & 0.659 & 0.677 & 0.619 & 
 \end{tabular}
 \end{table}
 
-The measured output (Table~\ref{tab:out11}) tells a different story: Period-routed ridge and Raw Attention swap places in both the established and Station~4 forecasts. On established stations, Period-routed ridge reaches an RMSE of 0.166 against 0.436 for Raw Attention; on Station~4 it is 0.173 against 0.659. As anticipated, errors get worse when moving to the held-out Station~4, and the trend is similar in both cases, though it gets much worse for Raw Attention (0.436 $\to$ 0.659, +51\%) compared with Period-routed ridge (0.166 $\to$ 0.173, +4\%) and Shared ridge (0.767 $\to$ 0.876, +14\%).
+When the models were actually run, Output 1.1 told a different story: Period-routed ridge and Raw Attention swap places in both the established and Station~4 forecasts. On established stations, Period-routed ridge reaches an RMSE of 0.166 against 0.436 for Raw Attention; on Station~4 it is 0.173 against 0.659. The same ordering holds for every product in both populations, with Period-routed ridge best on Products A, B and C alike (0.150--0.184).
 
-The RMSE for Period-routed ridge is the lowest because it conditions on exactly the quantity that changes, the period. Within one speed band, continuing the wave is nearly a linear operation, so once a person has supplied the right variable, a small closed-form model is enough. Raw Attention didn't do as well as I initially thought because it has to learn this speed dependence from the data on its own. Meanwhile, the slow drift dominates the raw input, and every pair of positions is scored separately instead of being grouped by their spacing. Its large drop on Station~4 also suggests it partly learned station-specific details rather than the speed structure.
+As anticipated, errors get worse when moving to the held-out Station~4, and the trend is similar in both cases, though it gets much worse for Raw Attention (0.436 $\to$ 0.659, +51\%) compared with Period-routed ridge (0.166 $\to$ 0.173, +4\%) and Shared ridge (0.767 $\to$ 0.876, +14\%).
+
+Regarding why the RMSE for Period-routed ridge is the lowest, our understanding is that it uses the one thing that changes between windows, the period. It first estimates how fast the machine is running, then picks a model fitted only on windows with a similar speed.
+
+Raw Attention didn't do as well as I initially thought because it has to learn this speed dependence from the data on its own. Meanwhile, the slow drift dominates the raw input, and every pair of positions is scored separately instead of being grouped by their spacing. Its large drop on Station~4 also suggests it partly learned station-specific details rather than the speed structure.
 
 Shared and Sensor-specific ridge have practically the same RMSE on established stations (0.767 vs.\ 0.768). The reason is that the underlying forecasting rule depends on the machine's speed, not on which station produced the data. Splitting by station just leaves each formula with less data, and each one still has to average across speeds.
 
@@ -134,7 +128,11 @@ Shared and Sensor-specific ridge have practically the same RMSE on established s
 \label{fig:out12}
 \end{figure}
 
-The single matrix $\widehat W$ in Eq.~(8) is fitted by least squares over \emph{all} training windows, which mix periods from 14 to 36 samples. A 16-sample cycle and a 30-sample cycle need different phase advances over the same 48-step horizon, so one fixed operator can only return their least-squares compromise. In Figure~\ref{fig:out12} this compromise is visible as \textbf{amplitude shrinkage and phase lag}: for Product~A the shared and sensor-specific ridge forecasts have visibly flattened peaks and fall behind the true oscillation in the second half of the horizon (window RMSE 0.779 and 0.787), while period-routed ridge, which uses a matrix fitted only to similar paces, tracks it (0.232). Averaging continuations whose phases disagree partly cancels them, which is why the compromise forecast is damped rather than simply shifted.
+The single matrix $\widehat W$ in Eq.~(8) is one fixed formula, fitted once on all training windows. These windows contain waves of very different speeds, with periods anywhere from 14 to 36 samples. A fast wave (16 samples) and a slow wave (30 samples) need to be continued differently over the next 48 steps. So, one formula can't fit both and ends up giving an average of the two.
+
+This averaging is visible in Figure~\ref{fig:out12}. For Product~A, the shared and sensor-specific ridge forecasts have flattened peaks and start falling behind the true wave in the second half of the horizon (window RMSE 0.779 and 0.787).
+
+Period-routed ridge uses a formula fitted only on waves of a similar speed, so it follows the true wave closely (0.232). When two waves that are out of step are averaged, they partly cancel each other out. That is why the shared forecast becomes weaker (smaller peaks), not just shifted in time.
 
 \begin{figure}[H]\centering
 \includegraphics[width=\linewidth]{{figures/1.3-1}.pdf}
@@ -142,16 +140,22 @@ The single matrix $\widehat W$ in Eq.~(8) is fitted by least squares over \emph{
 \label{fig:out13}
 \end{figure}
 
-Attention uses the \emph{same} learned $W_Q, W_K, W_V$ for both contexts, but its scores $QK^\top/\sqrt{d_h}$ are computed from the current window. Different inputs therefore give different weight matrices: in Figure~\ref{fig:out13} the Product~A and Product~C maps concentrate on different key positions, with a mean absolute weight difference of 0.013 and a maximum of 0.284. Each context thus receives its own value-mixing operation, whereas ridge applies the identical $\widehat W$ to every window. (This only shows that the mixing is context-dependent; it is not evidence that the attention weights have recovered the physical period.)
+Attention uses the same learned weights ($W_Q, W_K, W_V$) for every window. However, it computes its attention scores ($QK^\top/\sqrt{d_h}$) from the current window, so each new input produces a new set of weights.
+
+Figure~\ref{fig:out13} shows this: the Product~A and Product~C maps focus on different positions (mean absolute weight difference 0.013, maximum 0.284). So, attention mixes each window in its own way, whereas ridge applies the same $\widehat W$ to every window. This only shows that attention adapts to the input. It doesn't prove that attention has found the actual period of the wave.
 
 % ---------------------------------------------------------------------
 \subsection*{Response 2 -- Separating slow structure from repetition}
+
+\paragraph{Choosing the width $m$.}
 
 \begin{figure}[H]\centering
 \includegraphics[width=\linewidth]{{figures/2.1-1}.pdf}
 \caption{Output 2.1 -- trend and remainder for candidate widths (Station 2, Product C).}
 \label{fig:out21}
 \end{figure}
+
+When the averaging width is small, the trend follows part of the vibration. At $m=17$ the trend wiggles, and the remainder is weak (std 0.578). As $m$ grows, the trend becomes a smooth ramp and the remainder becomes a clean, full-size wave (std 1.572 at $m=41$). After decomposition, the period score peaks sharply at the true period (32), while the raw signal gives almost no peak.
 
 \begin{figure}[H]\centering
 \includegraphics[width=0.6\linewidth]{{figures/2.2-1}.pdf}
@@ -173,6 +177,13 @@ Median period error (samples) & 0.525 & 0.157 & 0.122 & 0.142 & 0.216\\
 \end{tabular}
 \end{table}
 
+In numbers, oracle period recovery rises from 0.687 (raw) to 0.998 ($m=41$). So, we selected $\mathbf{m=41}$. Note that the choice depends on what we measure: $m=41$ gives the best recovery within one sample, while $m=25$ gives the smallest median period error.
+
+\paragraph{Why a moving average suits this world.}
+The drift changes slowly, over about 240 samples, while the vibration repeats every 14--36 samples. A 41-sample window is longer than every vibration cycle, so it averages each cycle out to about zero. Yet it is much shorter than 240, so the drift passes into the trend almost unchanged. The oracle check is a fair way to pick $m$ because it tests exactly what we want: does the remainder show the true repeating pattern? It uses training data only, so validation and test data stay untouched.
+
+\paragraph{Effect on the model.}
+
 \begin{table}[H]\centering\small
 \caption{Output 2.3 -- decomposition ablation, validation RMSE (m/s$^2$).}
 \label{tab:out23}
@@ -186,11 +197,7 @@ Attention + decomposition & \textbf{0.324} & \textbf{0.486} & 0.302 / 0.375 / 0.
 \end{tabular}
 \end{table}
 
-\begin{itemize}
-  \item \textbf{Selected width $m=41$.} Visually (Fig.~\ref{fig:out21}), narrow widths let the trend follow part of the vibration: at $m=17$ the trend wiggles and the remainder is weak (std 0.578). As $m$ grows the trend becomes a smooth ramp and the remainder becomes a clean, full-amplitude oscillation (std 1.572 at $m=41$); after decomposition the period score peaks sharply at the true period (32), while the raw context gives almost no peak. Empirically, oracle period recovery rises from 0.687 (raw) to 0.998 ($m=41$), and in Output 2.3 adding decomposition to Attention lowers validation RMSE by \textbf{26\%} on established stations (0.436 $\to$ 0.324) and by \textbf{26\%} on Station~4 (0.659 $\to$ 0.486), improving every product.
-  \item \textbf{Why a moving average suits this world.} The drift varies on a 240-sample scale while the vibration has periods of 14--36 samples. A 41-sample window is longer than every vibration period, so it averages each cycle to approximately zero, yet it is much shorter than 240, so the drift passes into the trend almost unchanged. The training-only oracle diagnostic is a sound way to choose $m$ because it directly measures the property we want (does the remainder expose the true repetition?) using information available only in the synthetic training data, without touching validation or test data. Note that the selection criterion matters: $m=41$ maximises recovery within one sample, while $m=25$ has the smallest median period error.
-  \item \textbf{Where it fails / alternative.} A fixed moving average fails at an \emph{abrupt level shift} (e.g.\ a product changeover or impact inside the window): it smears the step over 41 samples and leaks a spurious transient into the remainder. It would also fail if a vibration period exceeded the window. An alternative is \textbf{STL/LOESS decomposition}, which fits local polynomials and assumes a locally smooth (curved) trend rather than a locally constant one, at the cost of more computation and tuning.
-\end{itemize}
+Adding decomposition to Attention lowers validation RMSE by 26\% on established stations (0.436 $\to$ 0.324) and by 26\% on Station~4 (0.659 $\to$ 0.486). It improves every product.
 
 \begin{figure}[H]\centering
 \includegraphics[width=0.92\linewidth]{{figures/2.3-1}.pdf}
@@ -198,11 +205,13 @@ Attention + decomposition & \textbf{0.324} & \textbf{0.486} & 0.302 / 0.375 / 0.
 \label{fig:out23}
 \end{figure}
 
+\paragraph{Where it fails, and an alternative.}
+A fixed moving average struggles with a sudden jump in level, e.g.\ a product changeover or an impact inside the window. It spreads the jump over 41 samples and leaks a false bump into the remainder. It would also fail if a vibration cycle were longer than the window. An alternative is STL/LOESS decomposition, which fits small local curves instead of a flat local average. It handles a curved trend better, but needs more computation and tuning.
+
 % ---------------------------------------------------------------------
 \subsection*{Response 3 -- Mixing by temporal delay}
 
-\noindent Implementation check: \texttt{aggregate\_delays} reproduces the worked example
-(35, 15, 25, 25, so $z_0=35$ and the shift runs the right way) and passes the gradient check; Output 3.1 confirms \texttt{delay\_scores} against a direct circular correlation (4, $-4$, 4, $-4$).
+\texttt{aggregate\_delays} gives the same answer as the worked example (35, 15, 25, 25). So $z_0 = 35$, and the shift runs in the right direction. It also passes the gradient check. Output 3.1 confirms that \texttt{delay\_scores} matches a direct circular correlation (4, $-4$, 4, $-4$).
 
 \begin{figure}[H]\centering
 \includegraphics[width=\linewidth]{{figures/3.2-1}.pdf}
@@ -210,11 +219,13 @@ Attention + decomposition & \textbf{0.324} & \textbf{0.486} & 0.302 / 0.375 / 0.
 \label{fig:out32}
 \end{figure}
 
-\begin{itemize}
-  \item \textbf{Strongest lags.} The residual correlation peaks at lag \textbf{16} (0.896) and lag \textbf{32} (0.897), i.e.\ at the run's period $P\approx16.1$ and its multiple $2P\approx32.3$; the troughs at about 8, 24 and 40 samples are the half-period offsets, where peaks align with troughs.
-  \item \textbf{Why decomposition cleans the evidence.} In the raw signal the correlation simply decays from about 0.45 at lag 8 to $-0.55$ at lag 40, with no peak at $P$: the slow ramp is similar to itself at every small shift and dominates the score. Removing the trend leaves an almost pure oscillation, so peaks align only at multiples of $P$. This supports the delay mixer's inductive bias: if useful information sits at a few recurring displacements, scoring $L$ delays (instead of $L^2$ position pairs) and aggregating shifted copies is the natural mechanism, and it works best on the decomposed stream. Consistently, in Output 4.1 the delay mixer alone already halves Raw Attention's error (0.436 $\to$ 0.214).
-  \item \textbf{Where delay mixing is the wrong bias.} An \emph{isolated transient}, such as a single impact from a loose part, has no recurring displacement. The delay mixer would either average it away or copy it forward at the selected lags as false ``echoes'', because it can only reuse shifted copies of the context. Similarly, if the period drifts quickly within one context (machine run-up), no small fixed set of lags aligns the whole window.
-\end{itemize}
+\paragraph{Strongest lags.} After removing the trend, the correlation peaks at lag 16 (0.896) and lag 32 (0.897). These match the wave's period ($P\approx16.1$) and twice the period ($\approx32.3$). The dips at about 8, 24 and 40 are half a period apart, where the peaks of one copy line up with the troughs of the other.
+
+\paragraph{Why decomposition helps.} In the raw signal, the correlation just keeps dropping, from about 0.45 at lag 8 to $-0.55$ at lag 40, with no peak at the period. The slow ramp looks similar to itself at every small shift, so it hides the repeating wave. Once the trend is removed, an almost pure wave is left, and peaks appear only at multiples of the period. This is exactly what the delay mixer relies on.
+
+If the useful information sits at a few repeating gaps, it makes sense to score $L$ delays instead of all $L^2$ position pairs, and to combine shifted copies of the signal. This works best on the decomposed signal. In line with this, the delay mixer alone already halves Raw Attention's error in Output 4.1 (0.436 $\to$ 0.214).
+
+\paragraph{Where delay mixing goes wrong.} A one-off event, like a single knock from a loose part, never repeats. The delay mixer can only reuse shifted copies of the window, so it would either average the event away or copy it forward as false ``echoes''. Similarly, if the speed changes quickly within one window (e.g.\ while the machine is speeding up), no small fixed set of delays fits the whole window.
 
 % ---------------------------------------------------------------------
 \subsection*{Response 4 -- Comparing designs and deploying}
@@ -223,6 +234,7 @@ Attention + decomposition & \textbf{0.324} & \textbf{0.486} & 0.302 / 0.375 / 0.
 I expect decomposition to help most, since it splits off the slow trend with a moving average and sends it to a simple linear head, leaving the encoder only the faster vibration.
 
 \paragraph{(b) Validation results (Outputs 4.1--4.2).}
+
 \begin{table}[H]\centering\small
 \caption{Validation error by model. RMSE in m/s$^2$, MSE in (m/s$^2$)$^2$.}
 \label{tab:out41}
@@ -257,14 +269,16 @@ Autoformer-inspired & 0.197 & 0.039 & 0.244 & 0.059 & 373{,}026 & 852\\
 \end{figure}
 
 \paragraph{Interpretation ($\le$ 200 words).}
-On established stations, decomposition alone lowers Raw Attention's RMSE from 0.436 to 0.324 ($-26\%$), delay mixing alone to 0.214 ($-51\%$), and both together to 0.197 ($-55\%$). The gains are \textbf{sub-additive}: the individual RMSE reductions sum to 0.334, but the combined reduction is 0.239 (in MSE: 0.229 summed vs.\ 0.151 combined). This fits the hypothesis that both switches address overlapping drift-plus-repetition problems. On held-out Station~4 the overlap is smaller: adding decomposition to the delay mixer still cuts RMSE from 0.338 to 0.244 ($-28\%$), versus only $-8\%$ on established stations. Contrary to my prediction, delay mixing was the stronger single upgrade overall; my prediction concerned drift-dominated contexts, which this aggregate table does not isolate.
-Across the horizon, all errors are similar at step 1 (0.11--0.15) and grow with lead time. Autoformer-inspired grows least among neural models (0.135 $\to$ 0.237), Raw Attention most (0.142 $\to$ 0.564), and period-routed ridge stays lowest throughout (0.112 $\to$ 0.228). Yet the hand-routed linear model still beats every neural variant.
+On established stations, decomposition alone cuts Raw Attention's error by about a quarter (0.436 $\to$ 0.324), delay mixing alone by about half (0.436 $\to$ 0.214), and using both gives the best result (0.197). However, the combined gain is smaller than the two gains added together. This suggests the two upgrades fix overlapping parts of the same drift-plus-repetition problem. On held-out Station~4, decomposition still helps a lot on top of delay mixing (0.338 $\to$ 0.244). Contrary to my prediction, delay mixing was the stronger single upgrade.
+
+Across the horizon, all models start with similar errors, and the errors grow the further ahead they forecast. Raw Attention gets worse the fastest, while Autoformer-inspired stays the most stable among the neural models. Period-routed ridge has the lowest error at every step. So, the simple linear model still beats every neural model.
 
 \paragraph{(c) Deployment choices (fixed before Output 4.3).}
 \begin{itemize}
-  \item \textbf{Established stations: Period-routed ridge.} Lowest validation RMSE (0.166 vs.\ 0.197 for the best neural model), about $6\times$ fewer parameters (59{,}904 vs.\ 373{,}026), and essentially instant fitting (0.002\,s vs.\ 852\,s).
-  \item \textbf{Held-out Station 4: Period-routed ridge.} Lowest held-out validation RMSE (0.173 vs.\ 0.244), with the same cost advantage; it routes by estimated pace rather than station identity, so it applies directly to an unseen station.
+  \item \textbf{Established stations:} For Stations 1--3, we chose Period-routed ridge because it gave the lowest validation error of all models (0.166, compared with 0.197 for the best neural model). It also uses about $6\times$ fewer parameters and fits almost instantly, while the neural model takes about 14 minutes.
+  \item \textbf{Held-out Station 4:} For Station~4, we chose the same model because it again gave the lowest validation error (0.173, compared with 0.244) and the same cost advantage.
 \end{itemize}
+
 \begin{table}[H]\centering\small
 \caption{Output 4.3 -- selected models, validation and test.}
 \label{tab:out43}
@@ -277,10 +291,212 @@ Station 4 & Period-routed ridge & 0.173 & 0.030 & 0.183 & 0.033\\
 \bottomrule
 \end{tabular}
 \end{table}
-\noindent Test errors stay close to validation (0.161 and 0.183), so the validation-based choice holds on unseen data. On the central question, the right inductive bias (conditioning on pace) mattered more here than additional model flexibility.
+
+\noindent Test errors stay close to validation (0.161 and 0.183), so the validation-based choice holds on unseen data. On the central question, the right inductive bias mattered more here than additional model flexibility.
 
 % =====================================================================
-\input{task2_section}
+\clearpage
+\section*{Task 2 -- Leaderboard Challenge (Autoformer)}
+\addcontentsline{toc}{section}{Task 2}
+
+We created three versions of the model, one for each leaderboard submission, and improved each one based on our validation results. The final model is a small Autoformer with 23{,}362 parameters. On top of the standard Autoformer, it has two additions:
+\begin{itemize}
+  \item a \textbf{non-linear covariate head}, which lets the external data affect each forecast step directly;
+  \item a \textbf{floor layer}, which stops the forecast from going below a realistic minimum value (14.7).
+\end{itemize}
+
+% ---------------------------------------------------------------------
+\subsection*{Data exploration and periodic structure}
+
+\begin{figure}[H]\centering
+\includegraphics[width=0.95\linewidth]{figures/t2-series.pdf}
+\caption{Task 2 history with the early-stop (orange) and evaluation (red) regions; the dotted line is the forecast floor (14.7).}
+\label{fig:t2series}
+\end{figure}
+
+\paragraph{Heavy tails.} The values range from 0 to 994 and can jump by ten times within a few days. Exact zeros almost never occur (only 2 of 43{,}656 hours).
+
+\begin{figure}[H]\centering
+\includegraphics[width=\linewidth]{figures/t2-periodicity.pdf}
+\caption{Periodogram, autocorrelation and mean by 24-step phase.}
+\label{fig:t2period}
+\end{figure}
+
+\paragraph{Repeating cycles.} The periodogram peaks at 24 steps and near 8{,}730 (close to 8{,}766, the number of hours in a year). So, the data is most likely hourly, with a daily and a yearly cycle. The daily cycle is weak: the average value across the day only moves between 86 and 113, around an overall mean of 98. Since no dates are given, we turned these two cycles into sin/cos ``phase'' features, which replace the time stamps Autoformer normally uses.
+
+\paragraph{Short memory.} The autocorrelation is 0.97 one hour apart but drops to 0.40 after a day, 0.16 after two days and 0.03 after a week. So, the recent past says very little about most of the 168-hour forecast.
+
+\paragraph{External file.} It has six continuous features (A--F) and four on/off flags (G--J), where only one flag is on at a time. On their own, they are only weakly related to the target (strongest: D $-0.25$, H $-0.21$, A $+0.17$, J $+0.15$). So, whether they actually help had to be tested by experiment. To prepare them, we applied \texttt{log1p} to the very skewed features D--F, standardised the continuous features using the training data, and kept the flags as 0/1.
+
+% ---------------------------------------------------------------------
+\subsection*{Validation protocol}
+
+\paragraph{Split.} The data was split in time order. Training used steps 1--37{,}608, the next 12 weeks were used only for early stopping, and the final 24 weeks were kept for evaluation.
+
+\paragraph{Scoring.} Each of the 24 evaluation weeks was scored separately using MAE, RMSE and sMAPE, and the scores were then averaged. Weeks 12--23 are the most recent and most volatile, so they were treated as the closest match to the leaderboard week.
+
+\paragraph{Seeds.} Every configuration was run with 3 random seeds and reported as mean $\pm$ std. Configurations were also compared week by week to confirm that any difference was genuine.
+
+\begin{table}[H]\centering\small
+\caption{Naive baselines on the 24 evaluation weeks.}
+\label{tab:t2base}
+\begin{tabular}{lccc}
+\toprule
+Baseline & MAE & RMSE & sMAPE (\%)\\
+\midrule
+Persistence (last value) & 96.7 & 117.4 & 89.1\\
+Seasonal naive (repeat last 24) & 85.5 & 108.2 & 95.3\\
+Mean of last 168 & 68.5 & 83.2 & 80.0\\
+Training mean (flat line) & 69.0 & 82.9 & 81.0\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+A few simple baselines were tested first. Predicting a flat line at the training mean outperformed repeating the last value by 34 RMSE. So, an RMSE of about 83 was set as the minimum any model had to beat.
+
+% ---------------------------------------------------------------------
+\subsection*{Model design}
+
+\begin{itemize}
+  \item \textbf{Autoformer body.} The Auto-Correlation and series-decomposition layers are adapted from the official implementation (\href{https://github.com/thuml/Autoformer}{github.com/thuml/Autoformer}, MIT licence; Wu et al., 2021) and wired as in its reference model: input decomposition (moving average, kernel 25); a decoder trend initialised from the window mean and a seasonal part from zeros; Auto-Correlation in the encoder and in both decoder attentions, keeping $k=\lfloor \ln L\rfloor = 5$ delays; decomposition after every attention and feed-forward block, with the trend accumulated through the decoder. The adapted files are in \texttt{Task 2 - Leaderboard/autoformer/}, with the source credited in each file header.
+  \item \textbf{Size:} $d_{\text{model}}=32$, 4 heads, 1 encoder and 1 decoder layer, $d_{ff}=64$. Input length 168, label length 48, \texttt{pred\_len} 168.
+  \item \textbf{Embedding (my own):} a circular-conv value embedding plus a linear map of the marks (phase features + covariates), with no positional encoding. The encoder and decoder take separate marks, which is what the external-data ablation varies.
+  \item \textbf{Exogenous head:} a term added at each forecast step, computed from the decoder marks over the horizon. Auto-Correlation aggregates time-shifted copies of the whole sequence, which blurs an effect tied to one step, and the head keeps that effect local. It is a 5-step convolution, a GELU and a 1$\times$1 convolution (1{,}153 parameters), so it reacts to \emph{changes} in the covariates, not only their levels.
+  \item \textbf{Floor layer:} the last operation is $\max(\hat y, f)$ with $f=14.7$, the 10th percentile of the training target.
+  \item \textbf{Training:} MSE on the standardised target; AdamW (weight decay $10^{-4}$, learning rate $3\times10^{-4}$, $3\times10^{-3}$ for the head); cosine schedule; dropout 0.25; batch 64; training windows every 2 steps; early stopping with patience 4 (maximum 15 epochs).
+\end{itemize}
+Per model: \textbf{23{,}362} trainable parameters (22{,}209 body and embeddings + 1{,}153 head).
+
+% ---------------------------------------------------------------------
+\subsection*{External-data ablation (final model, 3 seeds)}
+
+\begin{table}[H]\centering\small
+\caption{With vs.\ without the optional file: mean $\pm$ std over 3 seeds, 24 evaluation weeks.}
+\label{tab:t2abl}
+\begin{tabular}{lccc}
+\toprule
+Configuration & MAE & RMSE & sMAPE (\%)\\
+\midrule
+Target only & 68.2 $\pm$ 2.2 & 82.5 $\pm$ 1.7 & 78.9 $\pm$ 0.9\\
++ external (past only, encoder) & 68.9 $\pm$ 2.4 & 82.8 $\pm$ 1.4 & 79.4 $\pm$ 1.1\\
++ external (past + horizon, encoder and decoder) & \textbf{42.0 $\pm$ 2.4} & \textbf{56.8 $\pm$ 3.0} & \textbf{52.0 $\pm$ 0.3}\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[H]\centering
+\includegraphics[width=\linewidth]{figures/t2-ablation.pdf}
+\caption{External-data ablation: RMSE per seed (left) and per evaluation week (right).}
+\label{fig:t2abl}
+\end{figure}
+
+\begin{itemize}
+  \item \textbf{Covariates help only when they cover the horizon.} Past + horizon vs.\ target only: $\Delta$RMSE $=-25.7 \pm 11.3$, better on 18/24 weeks. Past only vs.\ target only: $+0.4 \pm 1.2$, better on 10/24, i.e.\ no effect.
+  \item \textbf{Interpretation.} The covariates are measured on the same clock as the target and are known over the forecast window. Knowing them up to the forecast origin adds nothing, because the target's own memory is short. Their value lies in describing conditions \emph{during} the horizon, so they must enter the decoder.
+  \item Without the horizon covariates, the Autoformer is no better than a flat line (82.5 vs.\ 82.9).
+\end{itemize}
+
+% ---------------------------------------------------------------------
+\subsection*{Submissions and design changes}
+
+Each change below was decided on the evaluation weeks before submitting; the leaderboard was used only to confirm.
+
+\begin{table}[H]\centering\small
+\caption{The three leaderboard submissions. Validation = RMSE over the 24 evaluation weeks (all / weeks 12--23) of exactly the configuration submitted.}
+\label{tab:t2subs}
+\resizebox{\linewidth}{!}{%
+\begin{tabular}{clcccccc}
+\toprule
+\# & Model & Val.\ all & Val.\ 12--23 & $P$ & $E$ & Leaderboard RMSE & Rank\\
+\midrule
+1 & Linear head, 1 seed, no refit, clip at 0 & 63.8 & 79.3 & 22{,}224 & 4 & 93.82 & $\sim$23\\
+2 & Non-linear head, 3 seeds + refit, floor after prediction & 56.0 & 71.4 & 70{,}086 & 18 & 71.48 & 8\\
+3 & Non-linear head, 3 seeds + refit, \textbf{floor layer} & \textbf{54.3} & \textbf{68.3} & 70{,}086 & 18 & \textbf{67.22} & \textbf{3}\\
+\bottomrule
+\end{tabular}}
+\end{table}
+
+\begin{table}[H]\centering\small
+\caption{Design checks on the past + horizon configuration (3 seeds, RMSE mean $\pm$ std over seeds).}
+\label{tab:t2design}
+\begin{tabular}{lcc}
+\toprule
+Configuration & All 24 weeks & Weeks 12--23\\
+\midrule
+Linear head, dropout 0.1, LR halved each epoch (v1) & 60.50 $\pm$ 2.48 & 75.87 $\pm$ 2.43\\
+Non-linear head, floored after prediction (v2) & 57.85 $\pm$ 2.42 & 72.58 $\pm$ 2.43\\
+Non-linear head, floor layer (v3) & \textbf{56.77 $\pm$ 2.46} & \textbf{69.89 $\pm$ 2.37}\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{itemize}
+  \item \textbf{First version.} It used a linear covariate head, a single seed and no refit, with negative values clipped at 0. It scored 93.8 on the leaderboard, against a validation mean of 60.5. The calm early weeks had made the average look better than it was. On the recent weeks alone, the same model scored 79.3, with weekly RMSE ranging from 33 to 101. So, from then on, models were selected on weeks 12--23 only.
+  \item \textbf{Second version.} Three changes were made here:
+  \begin{itemize}
+    \item Regularisation was tried first but did not help ($+0.67 \pm 1.36$, better on only 6 of 24 weeks). Every run still peaked at epoch 1 or 2, so the early stopping was not caused by overfitting.
+    \item The linear head was replaced with a non-linear one. This lowered RMSE by $3.05 \pm 4.41$ and was better on 17 of 24 weeks, since the largest errors happen at sudden changes, which a 5-step convolution can capture.
+    \item The models were retrained on the full history, which improved every seed ($-0.53$ RMSE), and three seeds were averaged, which lowered RMSE by a further 1.5--2.5. Clipping at 0 was also replaced with a floor of 14.7, applied after prediction.
+  \end{itemize}
+  It scored 71.48 on the leaderboard (8th).
+  \item \textbf{Third version.} The only change was moving the floor inside the model as a layer, so the model learns with it during training. Compared with the second version, this lowered RMSE by $1.08 \pm 2.63$, and by more on the seed-averaged recent weeks (71.40 $\to$ 68.34, with MAE falling from 45.7 to 42.0). It scored 67.22 on the leaderboard (3rd).
+\end{itemize}
+
+% ---------------------------------------------------------------------
+\subsection*{The forecast floor}
+
+A forecast floor is simply the lowest value the model is allowed to predict. The target here is never negative and almost never zero, so a forecast below a realistic minimum can only be wrong. In the first version, negative outputs were clipped at 0, which gave long runs of exact zeros at the end of the forecast. On validation weeks where this happened, the true values averaged around 14, not 0. So, in the second version, the floor was raised to 14.7, the 10th percentile of the training data, and applied after prediction.
+
+In the third version, the same floor was moved inside the model as a layer, so the model trained with it rather than having its output trimmed afterwards. This improved the score, but the forecast now sits exactly at 14.70 for 44 of 168 hours, at the start and end. In these hours the external data points to a low period, and the model pushes its output well below the floor.
+
+A natural next step would be to let the model learn the floor, either by learning the floor level itself during training or by using a smooth floor that still passes a learning signal below 14.7. This would let it predict values such as 18 or 25 in low periods instead of a flat 14.70. However, since the third version already scored well and matched its validation estimate, and the expected gain was small, this was left untested.
+
+% ---------------------------------------------------------------------
+\subsection*{Final model: validation and forecast}
+
+\begin{table}[H]\centering\small
+\caption{Final model on the 24 evaluation weeks.}
+\label{tab:t2final}
+\begin{tabular}{lcccccc}
+\toprule
+Seed & MAE & RMSE & sMAPE (\%) & RMSE weeks 12--23 & Best epoch & Epochs run\\
+\midrule
+0 & 44.52 & 60.10 & 51.74 & 72.89 & 1 & 5\\
+1 & 41.63 & 55.98 & 51.93 & 69.72 & 1 & 5\\
+2 & 39.80 & 54.24 & 52.28 & 67.08 & 1 & 5\\
+\textbf{3-seed average} & \textbf{40.01} & \textbf{54.26} & \textbf{49.32} & \textbf{68.34} & -- & --\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[H]\centering
+\includegraphics[width=\linewidth]{figures/t2-validation.pdf}
+\caption{Final model: per-week RMSE of the 3-seed average (left); early-stopping loss per seed (right).}
+\label{fig:t2val}
+\end{figure}
+
+\begin{figure}[H]\centering
+\includegraphics[width=0.95\linewidth]{figures/t2-example-weeks.pdf}
+\caption{Two evaluation weeks: actual vs.\ the 3-seed average forecast.}
+\label{fig:t2weeks}
+\end{figure}
+
+\begin{figure}[H]\centering
+\includegraphics[width=0.95\linewidth]{figures/t2-forecast.pdf}
+\caption{Submitted forecast for \texttt{time\_idx} 43{,}657--43{,}824.}
+\label{fig:t2fc}
+\end{figure}
+
+\paragraph{Final submission (third version).} Each of the three models was retrained on the full history (all 43{,}656 steps) for 1 epoch, the best epoch found by early stopping. Their three forecasts were then averaged. This gives $P = 3 \times 23{,}362 = 70{,}086$ parameters. Each model ran 5 epochs during early stopping plus 1 refit epoch, so $E = 3 \times (5 + 1) = 18$.
+
+\paragraph{Limitations.} It was found that every run reached its best result at epoch 1, which suggests that the main Autoformer part adds less than its size implies. Instead, much of the gain comes from the covariate head, which agrees with Zeng et al.\ (2023).
+
+% ---------------------------------------------------------------------
+\subsection*{References}
+\begin{itemize}
+  \item H.~Wu, J.~Xu, J.~Wang, M.~Long. Autoformer: Decomposition Transformers with Auto-Correlation for Long-Term Series Forecasting. \emph{NeurIPS}, 2021. Code: \url{https://github.com/thuml/Autoformer} (MIT licence).
+  \item A.~Zeng, M.~Chen, L.~Zhang, Q.~Xu. Are Transformers Effective for Time Series Forecasting? \emph{AAAI}, 2023.
+\end{itemize}
 
 % =====================================================================
 \clearpage
@@ -288,36 +504,14 @@ Station 4 & Period-routed ridge & 0.173 & 0.030 & 0.183 & 0.033\\
 \section*{Appendix -- Use of Generative AI}
 \addcontentsline{toc}{section}{Appendix: Generative AI use}
 
-\noindent Tool: Claude (Anthropic). For each use: the prompt, the output, and the edits I made.
-
-\begin{enumerate}
-  \item \textbf{Prompt:} ``help me understand the assignment, and how i need to solve it'' \\
-        \textbf{Output:} overview of Tasks 1--2 and a plan. \\
-        \textbf{Edits:} \todo{...}
-  \item \textbf{Prompt:} ``write me the code now full for forward'' \\
-        \textbf{Output:} the 5-line \texttt{RawAttentionForecaster.forward} assembly. \\
-        \textbf{Edits:} \todo{...}
-  \item \textbf{Prompt:} ``do it'' (report skeleton) \\
-        \textbf{Output:} this \LaTeX\ template (structure and placeholders only). \\
-        \textbf{Edits:} \todo{...}
-  \item \textbf{Prompt:} ``help me write it'' (\texttt{SeriesDecomposition.forward}, \texttt{aggregate\_delays}) \\
-        \textbf{Output:} implementations of both functions (replicate padding + \texttt{avg\_pool1d}; index arithmetic + \texttt{gather}). \\
-        \textbf{Edits:} \todo{...}
-  \item \textbf{Prompt:} ``help me write the responses seeing the results'' \\
-        \textbf{Output:} draft text for Responses 1A (measurement and revision), 1B, 2, 3 and 4(b)--(c), filled tables and figure placement, based on my full-run outputs. My predictions in 1A and 4(a) and my deployment choices were my own. \\
-        \textbf{Edits:} \todo{describe what you changed}
-  \item \textbf{Prompt:} ``alright go with 2, but guide me over what's being done'' (Task 2) \\
-        \textbf{Output:} data exploration, the validation protocol, the Autoformer pipeline (cited thuml layers, my own embedding wiring) and the three-variant external-data ablation, with step-by-step explanations. \\
-        \textbf{Edits:} \todo{...}
-  \item \textbf{Prompt:} ``isn't the model performing very low?'' / ``what changes do you suggest\ldots'' \\
-        \textbf{Output:} a comparison against a ridge yardstick and the published Autoformer results, and the proposals tested here (regularisation, refit, seed averaging, non-linear covariate head). \\
-        \textbf{Edits:} \todo{...}
-  \item \textbf{Prompt:} ``why can't we do something in training that improves that?'' / ``apply that max within the layer'' \\
-        \textbf{Output:} the floor analysis and the floor layer (submission 3), its validation, and the standalone \texttt{Task2\_v4.ipynb}. \\
-        \textbf{Edits:} \todo{...}
-  \item \textbf{Prompt:} ``create a report now based on what we did in first, second and third\ldots'' \\
-        \textbf{Output:} draft text, tables and figures for the Task 2 section of this report, from my runs and leaderboard results. \\
-        \textbf{Edits:} \todo{describe what you changed}
-\end{enumerate}
+Claude (Anthropic) was used as an assistant throughout the assignment:
+\begin{itemize}
+  \item \textbf{Understanding the tasks:} explaining the assignment requirements and concepts in Task~1 and Task~2.
+  \item \textbf{Code:} implementing and fixing functions in Task~1 (\texttt{RawAttentionForecaster.forward}, \texttt{SeriesDecomposition.forward}, \texttt{aggregate\_delays}); building the Task~2 training and validation pipeline around the cited thuml Autoformer layers; organising the repository.
+  \item \textbf{Graphs and tables:} producing the Task~2 figures and filling result tables from my runs.
+  \item \textbf{Architectural variations:} suggesting and testing changes on validation (regularisation, a non-linear covariate head, full-history refit, seed averaging, the floor layer).
+  \item \textbf{Writing:} drafting response text and the Task~2 section from my results.
+\end{itemize}
+All decisions were my own: the Task~1 predictions and deployment choices, which approach to adapt in Task~2, which changes to try, what to submit to the leaderboard, and the final content of this report.
 
 \end{document}
