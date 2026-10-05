@@ -1,104 +1,71 @@
 \documentclass[11pt,a4paper]{article}
-% ---------- page and fonts (matched to the AI651 handout) ----------
-\usepackage[margin=1in]{geometry}
-\usepackage[T1]{fontenc}
-\usepackage{lmodern}                 % Computer Modern, as in the handout
+\usepackage[margin=2.2cm]{geometry}
 \usepackage{amsmath,amssymb}
 \usepackage{graphicx}
 \usepackage{booktabs}
 \usepackage{float}
 \usepackage{xcolor}
 \usepackage{enumitem}
-\usepackage[skip=8pt plus 2pt]{parskip}   % no indent, space between paragraphs
-\usepackage{titlesec}
-\usepackage[most]{tcolorbox}
 \usepackage{hyperref}
-
-% ---------- handout colours ----------
-\definecolor{headteal}{RGB}{21,94,117}   % section headings
-\definecolor{boxnavy}{RGB}{20,60,110}    % box title bar
-\definecolor{boxgray}{RGB}{243,244,246}  % box body
-\hypersetup{colorlinks=true,linkcolor=headteal,urlcolor=headteal,citecolor=headteal}
-
-% ---------- heading style: bold serif in teal ----------
-\titleformat{\section}{\color{headteal}\Large\bfseries}{\thesection.}{0.8em}{}
-\titleformat{\subsection}{\color{headteal}\large\bfseries}{\thesubsection.}{0.8em}{}
-\titleformat{\subsubsection}{\color{headteal}\normalsize\bfseries}{\thesubsubsection.}{0.8em}{}
-\titlespacing*{\section}{0pt}{14pt}{8pt}
-\titlespacing*{\subsection}{0pt}{12pt}{6pt}
-\titlespacing*{\subsubsection}{0pt}{10pt}{4pt}
-
-% ---------- handout-style box (navy title bar, grey body) ----------
-\newtcolorbox{infobox}[1]{enhanced,colback=boxgray,colframe=boxnavy,
-  coltitle=white,fonttitle=\bfseries\small,title={#1},
-  boxrule=0.6pt,arc=1.5pt,left=6pt,right=6pt,top=4pt,bottom=4pt}
-
+\hypersetup{colorlinks=true,linkcolor=blue,urlcolor=blue}
 \setlist{nosep,leftmargin=1.4em}
 
 % ---------- helpers ----------
-% \todo{...} marks text still to write (red, easy to spot; delete all before submitting)
+% \todo{...} marks text still to write (red, easy to spot; delete before submitting)
 \newcommand{\todo}[1]{\textcolor{red}{[TODO: #1]}}
+% \figph{label}{caption} is a figure placeholder; swap for \includegraphics once the PDF exists
 \newcommand{\figph}[2]{%
   \begin{figure}[H]\centering
   \fbox{\parbox[c][4cm][c]{0.85\linewidth}{\centering\textcolor{gray}{Figure placeholder: \detokenize{#1}}}}
   \caption{#2}\label{fig:#1}\end{figure}}
+% When the figure exists, replace \figph{...}{...} with e.g.:
+%   \begin{figure}[H]\centering
+%   \includegraphics[width=0.9\linewidth]{figures/output_1_2.pdf}
+%   \caption{...}\label{fig:out12}\end{figure}
 
 \begin{document}
 
 % =====================================================================
-\thispagestyle{empty}
-\begin{center}
-\textbf{Lahore University of Management Sciences}\\
-Syed Babar Ali School of Science and Engineering (SBASSE)\\
-\textbf{AI651 -- Deep Learning for Space, Time and Graphs}\\
-Fall 2026\\[6pt]
-\textbf{Assignment 1 -- Report}
-\end{center}
-
-\noindent\rule{\linewidth}{0.6pt}\\[2pt]
-\textbf{Name:} Hasan Amjad \hfill \textbf{Roll No.:} 25280042\\[2pt]
-\textbf{GitHub repository:} \url{https://github.com/HasanAmjad/autoformer-exogenous-forecasting}\\[-4pt]
-\noindent\rule{\linewidth}{0.6pt}
-
-\vspace{6pt}
-\begin{infobox}{Contents of submission}
-This report (PDF and \LaTeX\ source); the executed \texttt{PA1\_PRESET=full} Task~1 notebook;
-each numbered figure as a PDF; Task~2 code and notebook in the repository.
-\end{infobox}
-
-\clearpage
+\begin{titlepage}
+\centering
+{\large Lahore University of Management Sciences}\\[2pt]
+{\large Department of Artificial Intelligence}\\[24pt]
+{\LARGE \textbf{AI651 -- Deep Learning for Space, Time and Graphs}}\\[8pt]
+{\Large Programming Assignment 1}\\[30pt]
+{\large Hasan Amjad}\\[2pt]
+{\large Roll No.\ 25280042}\\[24pt]
+\textbf{GitHub repository:}\\
+\url{https://github.com/USERNAME/REPO}\ \todo{replace with your public repo link}\\[24pt]
+\today
+\vfill
+\begin{flushleft}
+\small
+\textbf{Contents of submission:} this report (PDF and \LaTeX\ source); the executed
+\texttt{PA1\_PRESET=full} Task~1 notebook; each numbered figure as a PDF; Task~2 code in the repository.
+\end{flushleft}
+\end{titlepage}
 
 % =====================================================================
 \section*{Task 1 -- Forecasting Across Heterogeneous Sensors}
 \addcontentsline{toc}{section}{Task 1}
 
-\begin{infobox}{Run configuration}
+\noindent\textbf{Run configuration.}
 Preset \texttt{full}; data seed 0; model seed 0; device \texttt{mps} (Apple GPU);
 eligible train/validation/test origins 650/105/105.
 All numbers below come from this single full run. Unless stated otherwise, errors are
 \textbf{validation} RMSE in m/s$^2$; ``established'' = Stations 1--3, ``held-out'' = Station~4.
-\end{infobox}
 
 % ---------------------------------------------------------------------
 \subsection*{Response 1A -- Predicted vs.\ measured ordering}
 
-My prediction prior to running Output 1.1 was as follows:
+\paragraph{Prediction (written before running Output 1.1).}
+\begin{itemize}
+  \item \textbf{Established stations} (best $\to$ worst): Raw Attention $>$ Period-routed ridge $>$ Shared ridge $>$ Sensor-specific ridge.
+  \item \textbf{Held-out Station 4} (best $\to$ worst): Raw Attention $>$ Period-routed ridge $>$ Shared ridge; Sensor-specific ridge cannot forecast Station 4.
+  \item \textbf{Reasoning.} Raw Attention is a neural network that builds its own mixing rule from each context, so it should handle changing speed and also forecast Station 4. Period-routed ridge picks a formula fitted to the estimated speed, so it also handles changing speed and Station 4, but relies on a hand-designed router. Shared ridge applies one formula everywhere: it cannot adapt to speed, but it still forecasts Station 4. Sensor-specific ridge uses a fixed formula per station, so it cannot adapt to changing speed, and it has no formula for Station 4.
+\end{itemize}
 
-\begin{table}[H]\centering\small
-\caption{Predicted ordering, written before running Output 1.1.}
-\label{tab:pred1a}
-\begin{tabular}{ll}
-\toprule
-Population & Prediction (best $\to$ worst)\\
-\midrule
-Established stations & Raw Attention $>$ Period-routed $>$ Shared $>$ Sensor-specific\\
-Station 4 forecast   & Raw Attention $>$ Period-routed $>$ Shared ridge\\
-\bottomrule
-\end{tabular}
-\end{table}
-
-Sensor-specific ridge isn't part of the Station~4 forecast, since it requires a matrix fitted on that station's own training data, which isn't available in our case because Station~4 is held out. My intuition for why Raw Attention may lead was that it is basically a neural network that builds its own mixing rule from each window. It can handle changing data because its attention weights are recomputed from the current window, so the same learned projections produce a different mixing rule for each operating speed.
-
+\paragraph{Measurement (Output 1.1).}
 \begin{table}[H]\centering\small
 \caption{Output 1.1 -- validation RMSE (m/s$^2$) by population and product.}
 \label{tab:out11}
@@ -116,14 +83,21 @@ Raw Attention         & 0.436 & 0.412 & 0.462 & 0.433 & 0.659 & 0.677 & 0.619 & 
 \end{tabular}
 \end{table}
 
-The measured output (Table~\ref{tab:out11}) tells a different story: Period-routed ridge and Raw Attention swap places in both the established and Station~4 forecasts. On established stations, Period-routed ridge reaches an RMSE of 0.166 against 0.436 for Raw Attention; on Station~4 it is 0.173 against 0.659. As anticipated, errors get worse when moving to the held-out Station~4, and the trend is similar in both cases, though it gets much worse for Raw Attention (0.436 $\to$ 0.659, +51\%) compared with Period-routed ridge (0.166 $\to$ 0.173, +4\%) and Shared ridge (0.767 $\to$ 0.876, +14\%).
+\paragraph{Key differences, quantified.}
+\begin{itemize}
+  \item Period-routed ridge has the lowest error everywhere: 0.166 on established stations, \textbf{78\% lower} than shared ridge (0.767) and \textbf{62\% lower} than Raw Attention (0.436). It is also uniform across products (0.15--0.18).
+  \item Shared and sensor-specific ridge are practically identical (0.767 vs.\ 0.768): giving each station its own matrix buys nothing.
+  \item Generalisation to the unseen station: period-routed ridge degrades by only 4\% (0.166 $\to$ 0.173), shared ridge by 14\% (0.767 $\to$ 0.876), and Raw Attention by \textbf{51\%} (0.436 $\to$ 0.659).
+\end{itemize}
 
-The RMSE for Period-routed ridge is the lowest because it conditions on exactly the quantity that changes, the period. Within one speed band, continuing the wave is nearly a linear operation, so once a person has supplied the right variable, a small closed-form model is enough. Raw Attention didn't do as well as I initially thought because it has to learn this speed dependence from the data on its own. Meanwhile, the slow drift dominates the raw input, and every pair of positions is scored separately instead of being grouped by their spacing. Its large drop on Station~4 also suggests it partly learned station-specific details rather than the speed structure.
-
-Shared and Sensor-specific ridge have practically the same RMSE on established stations (0.767 vs.\ 0.768). The reason is that the underlying forecasting rule depends on the machine's speed, not on which station produced the data. Splitting by station just leaves each formula with less data, and each one still has to average across speeds.
-
-\paragraph{Revised ordering (both populations).}
-\textbf{Period-routed ridge $>$ Raw Attention $>$ Shared ridge $\approx$ Sensor-specific ridge} (the last is unavailable for Station~4).
+\paragraph{Revised ordering and explanation.}
+Measured ordering, both populations: \textbf{Period-routed ridge $>$ Raw Attention $>$ Shared ridge $\approx$ Sensor-specific ridge} (the latter unavailable on Station~4).
+My prediction got the bottom of the ranking right but the top wrong.
+\begin{itemize}
+  \item \emph{Shared $\approx$ sensor-specific:} the forecasting rule depends on operating pace, not on station identity, so splitting the data by station removes training data without removing the cross-pace compromise.
+  \item \emph{Period-routed ridge wins:} it conditions on exactly the quantity that changes (the period) and, within a pace band, continuation really is close to linear. A human supplied the right variable, so a small closed-form model suffices.
+  \item \emph{Raw Attention is second:} its context-built mixing beats one fixed matrix (0.436 vs.\ 0.767), but it must \emph{learn} the pace dependence from the data while the slow drift dominates the raw input and every position pair is scored separately. Its large held-out gap suggests it partly fitted station-specific details instead of the pace structure.
+\end{itemize}
 
 % ---------------------------------------------------------------------
 \subsection*{Response 1B -- Why the forecasting rule must depend on context}

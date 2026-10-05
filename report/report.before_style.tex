@@ -1,83 +1,59 @@
 \documentclass[11pt,a4paper]{article}
-% ---------- page and fonts (matched to the AI651 handout) ----------
-\usepackage[margin=1in]{geometry}
-\usepackage[T1]{fontenc}
-\usepackage{lmodern}                 % Computer Modern, as in the handout
+\usepackage[margin=2.2cm]{geometry}
 \usepackage{amsmath,amssymb}
 \usepackage{graphicx}
 \usepackage{booktabs}
 \usepackage{float}
 \usepackage{xcolor}
 \usepackage{enumitem}
-\usepackage[skip=8pt plus 2pt]{parskip}   % no indent, space between paragraphs
-\usepackage{titlesec}
-\usepackage[most]{tcolorbox}
 \usepackage{hyperref}
-
-% ---------- handout colours ----------
-\definecolor{headteal}{RGB}{21,94,117}   % section headings
-\definecolor{boxnavy}{RGB}{20,60,110}    % box title bar
-\definecolor{boxgray}{RGB}{243,244,246}  % box body
-\hypersetup{colorlinks=true,linkcolor=headteal,urlcolor=headteal,citecolor=headteal}
-
-% ---------- heading style: bold serif in teal ----------
-\titleformat{\section}{\color{headteal}\Large\bfseries}{\thesection.}{0.8em}{}
-\titleformat{\subsection}{\color{headteal}\large\bfseries}{\thesubsection.}{0.8em}{}
-\titleformat{\subsubsection}{\color{headteal}\normalsize\bfseries}{\thesubsubsection.}{0.8em}{}
-\titlespacing*{\section}{0pt}{14pt}{8pt}
-\titlespacing*{\subsection}{0pt}{12pt}{6pt}
-\titlespacing*{\subsubsection}{0pt}{10pt}{4pt}
-
-% ---------- handout-style box (navy title bar, grey body) ----------
-\newtcolorbox{infobox}[1]{enhanced,colback=boxgray,colframe=boxnavy,
-  coltitle=white,fonttitle=\bfseries\small,title={#1},
-  boxrule=0.6pt,arc=1.5pt,left=6pt,right=6pt,top=4pt,bottom=4pt}
-
+\hypersetup{colorlinks=true,linkcolor=blue,urlcolor=blue}
 \setlist{nosep,leftmargin=1.4em}
 
 % ---------- helpers ----------
-% \todo{...} marks text still to write (red, easy to spot; delete all before submitting)
+% \todo{...} marks text still to write (red, easy to spot; delete before submitting)
 \newcommand{\todo}[1]{\textcolor{red}{[TODO: #1]}}
+% \figph{label}{caption} is a figure placeholder; swap for \includegraphics once the PDF exists
 \newcommand{\figph}[2]{%
   \begin{figure}[H]\centering
   \fbox{\parbox[c][4cm][c]{0.85\linewidth}{\centering\textcolor{gray}{Figure placeholder: \detokenize{#1}}}}
   \caption{#2}\label{fig:#1}\end{figure}}
+% When the figure exists, replace \figph{...}{...} with e.g.:
+%   \begin{figure}[H]\centering
+%   \includegraphics[width=0.9\linewidth]{figures/output_1_2.pdf}
+%   \caption{...}\label{fig:out12}\end{figure}
 
 \begin{document}
 
 % =====================================================================
-\thispagestyle{empty}
-\begin{center}
-\textbf{Lahore University of Management Sciences}\\
-Syed Babar Ali School of Science and Engineering (SBASSE)\\
-\textbf{AI651 -- Deep Learning for Space, Time and Graphs}\\
-Fall 2026\\[6pt]
-\textbf{Assignment 1 -- Report}
-\end{center}
-
-\noindent\rule{\linewidth}{0.6pt}\\[2pt]
-\textbf{Name:} Hasan Amjad \hfill \textbf{Roll No.:} 25280042\\[2pt]
-\textbf{GitHub repository:} \url{https://github.com/HasanAmjad/autoformer-exogenous-forecasting}\\[-4pt]
-\noindent\rule{\linewidth}{0.6pt}
-
-\vspace{6pt}
-\begin{infobox}{Contents of submission}
-This report (PDF and \LaTeX\ source); the executed \texttt{PA1\_PRESET=full} Task~1 notebook;
-each numbered figure as a PDF; Task~2 code and notebook in the repository.
-\end{infobox}
-
-\clearpage
+\begin{titlepage}
+\centering
+{\large Lahore University of Management Sciences}\\[2pt]
+{\large Department of Artificial Intelligence}\\[24pt]
+{\LARGE \textbf{AI651 -- Deep Learning for Space, Time and Graphs}}\\[8pt]
+{\Large Programming Assignment 1}\\[30pt]
+{\large Hasan Amjad}\\[2pt]
+{\large Roll No.\ 25280042}\\[24pt]
+\textbf{GitHub repository:}\\
+\url{https://github.com/USERNAME/REPO}\ \todo{replace with your public repo link}\\[24pt]
+\today
+\vfill
+\begin{flushleft}
+\small
+\textbf{Contents of submission:} this report (PDF and \LaTeX\ source); the executed
+\texttt{PA1\_PRESET=full} Task~1 notebook; each numbered figure as a PDF; Task~2 code in the repository.
+\end{flushleft}
+\end{titlepage}
 
 % =====================================================================
 \section*{Task 1 -- Forecasting Across Heterogeneous Sensors}
 \addcontentsline{toc}{section}{Task 1}
 
-\begin{infobox}{Run configuration}
+\noindent\textbf{Run configuration.}
 Preset \texttt{full}; data seed 0; model seed 0; device \texttt{mps} (Apple GPU);
 eligible train/validation/test origins 650/105/105.
 All numbers below come from this single full run. Unless stated otherwise, errors are
 \textbf{validation} RMSE in m/s$^2$; ``established'' = Stations 1--3, ``held-out'' = Station~4.
-\end{infobox}
 
 % ---------------------------------------------------------------------
 \subsection*{Response 1A -- Predicted vs.\ measured ordering}
