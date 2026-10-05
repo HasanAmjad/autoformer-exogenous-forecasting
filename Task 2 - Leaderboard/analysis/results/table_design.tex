@@ -1,0 +1,12 @@
+\begin{tabular}{llllll}
+\toprule
+ & RMSE all 24 & RMSE weeks 12-23 & seed-averaged, all & seed-averaged, 12-23 & MAE \\
+\midrule
+v1: linear head (attempt 1 config) & 60.50 ± 2.48 & 75.87 ± 2.43 & 58.920000 & 74.530000 & 47.580000 \\
+v1_reg: linear head, regularised & 61.17 ± 2.11 & 76.20 ± 2.46 & 59.890000 & 75.310000 & 48.100000 \\
+v2: non-linear head, clipped at 0 & 58.12 ± 2.37 & 72.72 ± 2.40 & 56.130000 & 71.470000 & 46.350000 \\
+v2: non-linear head, floored after prediction (attempt 2) & 57.85 ± 2.42 & 72.58 ± 2.43 & 55.960000 & 71.400000 & 45.650000 \\
+v3: non-linear head, floor layer (attempt 3) & 56.77 ± 2.46 & 69.89 ± 2.37 & 54.260000 & 68.340000 & 41.980000 \\
+v1 + 12 recent weeks in training & 59.97 ± 2.39 & 75.16 ± 2.37 & 58.140000 & 73.720000 & 46.900000 \\
+\bottomrule
+\end{tabular}

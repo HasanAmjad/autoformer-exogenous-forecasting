@@ -12,7 +12,6 @@ Task 1/checkpoints/
 report/report.before_responses.tex
 report/task1_draft.tex
 
-# leaderboard forecast values must not be shared (course policy);
-# they are reproduced by running Task 2 - Leaderboard/Task2.ipynb
-Task 2 - Leaderboard/results/submission.txt
-Task 2 - Leaderboard/results/submission_forecast.csv
+# leaderboard forecast values must not be shared (course policy); each notebook regenerates them
+Task 2 - Leaderboard/*/results/submission.txt
+Task 2 - Leaderboard/*/results/submission_forecast.csv

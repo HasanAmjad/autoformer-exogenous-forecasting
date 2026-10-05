@@ -1,13 +1,23 @@
-# AI651 PA1 – Task 2 (Leaderboard): Autoformer
+# Task 2: Leaderboard Challenge (Autoformer)
 
-* `Task2.ipynb`: the full, executed pipeline (data, periodicity, split, baselines, model, training, ablation, final forecast).
-* `task2.py`: the same code as the notebook, as a CLI so seeds can run in parallel:
-  `python task2.py baselines`, `python task2.py run --variant pastfuture --seed 0`, `python task2.py final --variant pastfuture --seed 0`.
-  `run_all_seeds.sh` runs all 9 (variant, seed) jobs, two at a time.
-* `autoformer/`: Auto-Correlation and series-decomposition layers copied from the official implementation,
-  https://github.com/thuml/Autoformer (MIT licence). Wu et al., NeurIPS 2021.
-* `results/`: per-run metrics, histories and weights (`runs/`), baselines, the ablation LaTeX table, and the submission files.
-* `figures/`: numbered PDF figures for the report.
+One folder per leaderboard attempt. Each folder holds a standalone notebook for exactly what was submitted.
 
-Requirements: Python ≥ 3.11, torch, numpy, pandas, matplotlib (the same environment as Task 1).
-Final submission: variant `pastfuture`, seed 0. P and E are printed by the notebook and saved to `results/submission_meta.json`.
+| Folder | Model | P | E | Leaderboard RMSE |
+|---|---|---|---|---|
+| `v1/` | Autoformer + linear covariate head, seed 0 | 22,224 | 4 | 93.82 |
+| `v2/` | Autoformer + non-linear covariate head, 3 seeds refit, floor after prediction | 70,086 | 18 | 71.48 |
+| `v3/` | Autoformer + non-linear covariate head + floor layer, 3 seeds refit (**final**) | 70,086 | 18 | **67.22** (rank 3) |
+| `analysis/` | baselines, external-data ablation, design comparisons used in the report | | | |
+
+```
+Data/          student_train.csv, student_test.csv, optional_external_data.csv
+autoformer/    Auto-Correlation and series-decomposition layers from github.com/thuml/Autoformer (MIT)
+v1/ v2/ v3/    Task2_vX.ipynb, results/ (trained models, validation tables), figures/
+analysis/      analysis.ipynb, results/ (extra runs, tables), figures/
+```
+
+**Run:** open a notebook and choose Run All. With `RUN_EXPERIMENTS = False` (the default) it loads the saved models and finishes in about a minute. With `True` it retrains everything from scratch.
+
+Requirements: Python ≥ 3.11, torch, numpy, pandas, matplotlib, jupyter.
+
+The submitted forecast values (`results/submission.txt`) are not committed, in line with the course policy. Each notebook regenerates them in its final section.

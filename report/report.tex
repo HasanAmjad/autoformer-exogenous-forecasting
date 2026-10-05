@@ -63,7 +63,7 @@ Fall 2026\\[6pt]
 \vspace{6pt}
 \begin{infobox}{Contents of submission}
 This report (PDF and \LaTeX\ source); the executed \texttt{PA1\_PRESET=full} Task~1 notebook;
-each numbered figure as a PDF; Task~2 code and notebook in the repository.
+each numbered figure as a PDF; Task~2 code and notebooks (\texttt{v1}, \texttt{v2}, \texttt{v3} and \texttt{analysis}) in the repository.
 \end{infobox}
 
 \clearpage
@@ -280,38 +280,7 @@ Station 4 & Period-routed ridge & 0.173 & 0.030 & 0.183 & 0.033\\
 \noindent Test errors stay close to validation (0.161 and 0.183), so the validation-based choice holds on unseen data. On the central question, the right inductive bias (conditioning on pace) mattered more here than additional model flexibility.
 
 % =====================================================================
-\clearpage
-\section*{Task 2 -- Leaderboard Challenge (Autoformer)}
-\addcontentsline{toc}{section}{Task 2}
-
-\subsection*{Data exploration and periodic structure}
-\todo{ACF, recovered periods, heavy tails, transforms}
-
-\subsection*{Validation protocol}
-\todo{chronological splits, number of 168-step blocks, metrics tracked (MAE, RMSE, sMAPE)}
-
-\subsection*{Model design}
-\todo{Autoformer components used (series decomposition, auto-correlation), input length, size, cited source}
-
-\subsection*{External-data ablation (multi-seed)}
-\begin{table}[H]\centering\small
-\caption{With vs.\ without optional external data -- mean $\pm$ std over \todo{k} seeds, validation.}
-\begin{tabular}{lccc}
-\toprule
-Configuration & MAE & RMSE & sMAPE\\
-\midrule
-Target only & & & \\
-+ external (past only) & & & \\
-+ external (past + horizon) & & & \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\subsection*{Final submission}
-Declared parameters $P=$ \todo{}; epochs $E=$ \todo{}; leaderboard score \todo{}.
-
-\subsection*{Reflection questions (optional)}
-\todo{Q2.1--Q2.9, if answered}
+\input{task2_section}
 
 % =====================================================================
 \clearpage
@@ -337,7 +306,18 @@ Declared parameters $P=$ \todo{}; epochs $E=$ \todo{}; leaderboard score \todo{}
   \item \textbf{Prompt:} ``help me write the responses seeing the results'' \\
         \textbf{Output:} draft text for Responses 1A (measurement and revision), 1B, 2, 3 and 4(b)--(c), filled tables and figure placement, based on my full-run outputs. My predictions in 1A and 4(a) and my deployment choices were my own. \\
         \textbf{Edits:} \todo{describe what you changed}
-  \item \todo{add further prompts as you go}
+  \item \textbf{Prompt:} ``alright go with 2, but guide me over what's being done'' (Task 2) \\
+        \textbf{Output:} data exploration, the validation protocol, the Autoformer pipeline (cited thuml layers, my own embedding wiring) and the three-variant external-data ablation, with step-by-step explanations. \\
+        \textbf{Edits:} \todo{...}
+  \item \textbf{Prompt:} ``isn't the model performing very low?'' / ``what changes do you suggest\ldots'' \\
+        \textbf{Output:} a comparison against a ridge yardstick and the published Autoformer results, and the proposals tested here (regularisation, refit, seed averaging, non-linear covariate head). \\
+        \textbf{Edits:} \todo{...}
+  \item \textbf{Prompt:} ``why can't we do something in training that improves that?'' / ``apply that max within the layer'' \\
+        \textbf{Output:} the floor analysis and the floor layer (submission 3), its validation, and the standalone \texttt{Task2\_v4.ipynb}. \\
+        \textbf{Edits:} \todo{...}
+  \item \textbf{Prompt:} ``create a report now based on what we did in first, second and third\ldots'' \\
+        \textbf{Output:} draft text, tables and figures for the Task 2 section of this report, from my runs and leaderboard results. \\
+        \textbf{Edits:} \todo{describe what you changed}
 \end{enumerate}
 
 \end{document}
