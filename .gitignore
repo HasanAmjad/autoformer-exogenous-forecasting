@@ -15,3 +15,4 @@ report/task1_draft.tex
 # leaderboard forecast values must not be shared (course policy); each notebook regenerates them
 Task 2 - Leaderboard/*/results/submission.txt
 Task 2 - Leaderboard/*/results/submission_forecast.csv
+report/report.before_*.tex
